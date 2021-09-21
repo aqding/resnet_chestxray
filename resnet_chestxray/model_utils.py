@@ -24,6 +24,7 @@ from torch.utils.tensorboard import SummaryWriter
 import torch.nn as nn
 import torch.nn.functional as F
 
+import pickle
 
 # Convert edema severity to ordinal encoding
 def convert_to_ordinal(severity):
@@ -38,6 +39,20 @@ def convert_to_ordinal(severity):
     else:
         raise Exception("No other possibilities of ordinal labels are possible")
 
+def convert_2_class_to_onehot(pred):
+    if pred == 0:
+        return [1, 0]
+    else:
+        return [0, 1]
+    
+def convert_3_class_to_onehot(pred):
+    if pred == 0:
+        return [1, 0, 0]
+    elif pred == 1:
+        return [0, 1, 0]
+    else:
+        return [0, 0, 1]
+    
 # Convert edema severity to one-hot encoding
 def convert_to_onehot(severity):
     if severity == 0:
@@ -50,6 +65,11 @@ def convert_to_onehot(severity):
         return [0,0,0,1]
     else:
         raise Exception("No other possibilities of ordinal labels are possible")
+        
+def compare_2_classes(probs, class_1, class_2):
+    classes = np.concatenate((probs[class_1:class_1+1], probs[class_2:class_2+1]))
+    probs = classes/np.sum(classes)
+    return probs
 
 # Load an .npy or .png image 
 def load_image(img_path):
@@ -86,32 +106,64 @@ class CXRImageDataset(torchvision.datasets.VisionDataset):
         self.data_key = data_key
         self.label_key = label_key
         self.transform = transform
-        self.image_ids = self.dataset_metadata[data_key]
-        self.select_valid_labels()
+        self.image_ids_1 = self.dataset_metadata['mimic_id_1']
+        self.image_ids_2 = self.dataset_metadata['mimic_id_2']
+#         self.select_valid_labels()
         self.cache = cache
+
+        bnp_path = '/data/vision/polina/projects/chestxray/ading/bnp_features_normalized.pkl'
+        creatinine_path = '/data/vision/polina/projects/chestxray/ading/creatinine_features_normalized.pkl'
+        
+        with open(bnp_path, 'rb') as f:
+            self.bnp=pickle.load(f)
+        with open(creatinine_path, 'rb') as f:
+            self.creatinine=pickle.load(f)
+
+
+
         if self.cache:
             self.cache_dataset() 
         else:
             self.images = None
 
     def __len__(self):
-        return len(self.image_ids)
+        return len(self.image_ids_1)
 
     def __getitem__(self, idx):
-        img_id, label = self.dataset_metadata.loc[idx, [self.data_key, self.label_key]]
+
+        img_id_1, img_id_2, label = self.dataset_metadata.loc[idx, ['mimic_id_1', 'mimic_id_2', 'delta_bnp']]
 
         if self.cache:
             img = self.images[str(idx)]
         else:
-            png_path = os.path.join(self.data_dir, f'{img_id}.png')
-            img = cv2.imread(png_path, cv2.IMREAD_ANYDEPTH)
+            png_path_1 = os.path.join(self.data_dir, f'{img_id_1}.png')
+            img_1 = cv2.imread(png_path_1, cv2.IMREAD_ANYDEPTH)
+            png_path_2 = os.path.join(self.data_dir, f'{img_id_2}.png')
+            img_2 = cv2.imread(png_path_2, cv2.IMREAD_ANYDEPTH)
 
         if self.transform is not None:
-            img = self.transform(img)
+            img_1 = self.transform(img_1)
+            img_2 = self.transform(img_2)
 
-        img = np.expand_dims(img, axis=0)
+        img = np.stack((img_1, img_2), axis=0)
+        
+        return img, label, img_id_1, img_id_2
 
-        return img, label, img_id
+#         if img_id in self.bnp:
+#             alpha = .5
+#             bnp_label = torch.from_numpy(self.bnp[img_id]).float()
+#         else:
+#             alpha = 0
+#             bnp_label = torch.zeros((4)).float()
+
+#         if img_id in self.creatinine:
+#             beta = .5
+#             creatinine_label = torch.from_numpy(self.creatinine[img_id]).float()
+#         else:
+#             beta = 0
+#             creatinine_label = torch.zeros((4)).float()
+        
+#         return img, label, img_id, alpha, beta, bnp_label, creatinine_label
 
     def select_valid_labels(self):
         self.dataset_metadata = self.dataset_metadata[self.dataset_metadata[self.label_key]>=0]

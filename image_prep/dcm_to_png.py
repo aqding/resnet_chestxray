@@ -73,11 +73,12 @@ class MimicCxrDataset(torchvision.datasets.VisionDataset):
             self.dataset_metadata, metadata_selected, 'dicom_id').reset_index(drop=True)
 
     def __getitem__(self, idx):
+        print("item got")
         subject_id, study_id, dicom_id = \
             self.dataset_metadata.loc[idx, ['subject_id', 'study_id', 'dicom_id']]
         dcm_path = os.path.join(
             self.mimiccxr_dir, f'p{subject_id}', f's{study_id}', f'{dicom_id}.dcm')
-        
+        print("start reading")
         if os.path.isfile(dcm_path):
             dcm = pydicom.dcmread(dcm_path)
             img = dcm.pixel_array
@@ -85,7 +86,7 @@ class MimicCxrDataset(torchvision.datasets.VisionDataset):
         else:
             img = -1
             dcm_exists = False
-        
+        print("start transforming")
         if self.transform is not None:
             img = self.transform(img)
 
@@ -107,17 +108,26 @@ def frontal_dcm_to_png(img_size, save_folder, dataset_metadata,
                                        transform=transform)
     print(f'Total number of images: {mimiccxr_dataset.__len__()}')
     if view_metadata != None:
+        print("not None")
         # Select frontal view images
         mimiccxr_dataset.select_by_column(view_metadata, 'view', ['frontal'])
+    
     print(f'Total number of frontal view images: {mimiccxr_dataset.__len__()}')
     mimiccxr_loader = DataLoader(mimiccxr_dataset, batch_size=1, shuffle=False,
-                                 num_workers=1, pin_memory=True)
-
+                                 num_workers=10, pin_memory=True)
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
     num_notexist = 0
     num_exist = 0
+     
+    total=0
+    for data in iter(mimiccxr_loader):
+        print(total)
+        total+=1
+
     for i, (img, dcm_exists, subject_id, study_id, dicom_id) in enumerate(mimiccxr_loader):
+
+        print('here too')
         if dcm_exists:
             img = img.cpu().numpy().astype(np.float)
             mimic_id = MimicID(subject_id[0], study_id[0], dicom_id[0])

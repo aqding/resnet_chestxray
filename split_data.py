@@ -34,10 +34,14 @@ model_utils.CXRImageDataset.create_dataset_metadata(mimiccxr_metadata=mimiccxr_m
 Split data using both chexpert labels and edema severity labels
 '''
 
-chexpert_labels = os.path.join(current_dir, 'mimic_cxr_labels/mimic-cxr-2.0.0-chexpert.csv')
+data_loc = '/data/vision/polina/projects/chestxray/data_v2/mimic-cxr-jpg-chest-radiographs-with-structured-labels-2.0.0'
+
+#chexpert_labels = os.path.join(current_dir, 'mimic_cxr_labels/mimic-cxr-2.0.0-chexpert.csv')
+chexpert_labels = os.path.join(data_loc, 'mimic-cxr-2.0.0-chexpert.csv')
 test_edema = os.path.join(current_dir, 'data/test_edema.csv')
 train_edema = os.path.join(current_dir, 'data/training_edema.csv')
-chexpert_split =  os.path.join(current_dir, 'mimic_cxr_labels/mimic-cxr-2.0.0-split.csv')
+#chexpert_split = os.path.join(current_dir, 'mimic_cxr_labels/mimic-cxr-2.0.0-split.csv')
+chexpert_split = os.path.join(data_loc, 'mimic-cxr-2.0.0-split.csv')
 
 test_edema = pd.read_csv(test_edema)
 train_edema = pd.read_csv(train_edema)

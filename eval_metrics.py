@@ -161,3 +161,4 @@ def compute_mse(labels, preds):
             expect_preds[i] += j * preds[i][j]
 
     return mse(labels, expect_preds)
+
